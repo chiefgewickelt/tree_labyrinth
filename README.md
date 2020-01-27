@@ -1,5 +1,7 @@
 # tree_labyrinth
 
+![](images/10x10.png)
+
 Minimal spanning trees are used to create randomized labyrinths.
 
 Outpupt:
