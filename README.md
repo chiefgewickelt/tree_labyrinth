@@ -29,3 +29,11 @@ g++ -std=c++14 -o labyrinth labyrinth.cpp
 
 You will need to have `g++` installed.
 
+## Related Work
+
+Based on this algorithm, we created a [3d labyrinth on top of the
+3d terrain of Potsdam][potsdam-3d].
+
+
+[potsdam-3d]: https://www.tinkercad.com/things/kBF1QwTNsM5-labyrinth-13x13-potsdam-height-profile
+
