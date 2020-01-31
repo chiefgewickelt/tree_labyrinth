@@ -102,10 +102,18 @@ std::vector<Edge> make_labyrinth(int X, int Y) {
       int a , b;
       int a_parent, b_parent ,a_depth, b_depth;
       for(auto &e : edges) {
+	std::pair<int,int> a_parent_depth;
+	std::pair<int,int> b_parent_depth;
+	
 	a = e.y1*X + e.x1;
 	b = e.y2*X + e.x2;
-	auto [a_parent,a_depth] = seek_parent(a,union_finder);
-	auto [b_parent,b_depth] = seek_parent(b,union_finder);
+	a_parent_depth = seek_parent(a,union_finder);
+	b_parent_depth = seek_parent(b,union_finder);
+	
+	a_parent = a_parent_depth.first;
+	a_depth = a_parent_depth.second;
+	b_parent = b_parent_depth.first;
+	b_depth = b_parent_depth.second;
 	if(open_sides[a]<3 and open_sides[b]<3 and a_parent != b_parent) {
 	  e.used = 1;
 	  //union_(a,b,union_finder);
