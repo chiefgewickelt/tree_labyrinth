@@ -125,7 +125,7 @@ std::vector<Edge> make_labyrinth(int X, int Y) {
 	}
 	else {
 	  if(number_of_unions >= X*Y-1) {
-	    std::cout << "all conected\n";
+	    std::cout << "all connected\n";
 	    break;
 	  }
 	}
@@ -140,12 +140,107 @@ T calculate_svg_coordinates_from( T input_coordinate) {
   return input_coordinate + 5;
 }
 
-void insert_svg_line(std::fstream& s, int x1 , int y1, int x2, int y2, std::string indent = "    " ) {
+typedef void (*Transform) (int X, int Y, double *x, double *y);
+
+/* This is the square transformation.
+ *
+ */
+void transform_square(int X, int Y, double *x, double *y) {
+
+}
+
+/* This is the circle transformation.
+ *
+ */
+void transform_circle(int X, int Y, double *x, double *y) {
+  if (*x+*x == X && *y+*y == Y) {
+    return;
+  }
+  double middle_x = X / 2.0;
+  double middle_y = Y / 2.0;
+  double rel_x = *x - middle_x;
+  double rel_y = *y - middle_y;
+  double radius = std::max(std::abs(rel_x), std::abs(rel_y));
+  /* see https://github.com/chiefgewickelt/tree_labyrinth/issues/3
+   *  x ,  y  -> points_on_the_circle
+   * 0.5, 0.5 -> 4
+   * 1.5, 1.5 -> 12
+   * 2.5, 2.5 -> 20
+   * 
+   * 0.0, 0.0 -> 1
+   * 1.0, 1.0 -> 8
+   * 2.0, 2.0 -> 16
+   * 3.0, 3.0 -> 24
+   *
+   * 0.5, 0.0 -> 2
+   * 1.5, 1.0 -> 10
+   * 2.5, 2.0 -> 18
+   * 3.5, 3.0 -> 26
+   *
+   */
+  double points_on_the_circle = 2 * radius * 4;
+  double radius_x = radius;
+  double radius_y = radius;
+  if (X % 2 != Y % 2) {
+    if (std::ceil(radius) - radius == 0.5) {
+      // the radius is detemined by the higher value
+      points_on_the_circle -= 2;
+      if (X % 2 == 1) {
+        radius_y -= 0.5;
+        //std::cout << "(1.1) "; // debug
+      } else {
+        // Y % 2 == 1
+        radius_x -= 0.5;
+        //std::cout << "(1.2) "; // debug
+      }    } else {
+      // the radius is detemined by the lower value
+      points_on_the_circle += 2;
+      if (X % 2 == 1) {
+        radius_x += 0.5;
+        //std::cout << "(2.1) "; // debug
+      } else {
+        // Y % 2 == 1
+        radius_y += 0.5;
+        //std::cout << "(2.2) "; // debug
+      }
+    }
+  }
+  double index_on_circle = 0;
+  /* +---d---+        
+   * |       |
+   * c       a
+   * |       |
+   * +---b---+
+   */
+  if        (rel_x == radius_x) {
+    //std::cout << "a "; // debug
+    index_on_circle += 0 * (radius_y + radius_x) + rel_y;
+  } else if (rel_y == radius_y) {
+    //std::cout << "b "; // debug
+    index_on_circle += 1 * (radius_y + radius_x) - rel_x;
+  } else if (rel_x == -radius_x) {
+    //std::cout << "c "; // debug
+    index_on_circle += 2 * (radius_y + radius_x) - rel_y;
+  } else if (rel_y == -radius_y) {
+    //std::cout << "d "; // debug
+    index_on_circle += 3 * (radius_y + radius_x) + rel_x;
+  } else {
+    std::cout << "error ";
+  }
+  double angle = 2 * M_PI * index_on_circle / points_on_the_circle;
+  *x = std::cos(angle) * radius_x + middle_x;
+  *y = std::sin(angle) * radius_y + middle_y;
+  //std::cout << "points_on_the_circle=" << points_on_the_circle << " radius_x=" << radius_x << " radius_y=" << radius_y << " rel_x=" << rel_x << " rel_y=" << rel_y << " index_on_circle=" << index_on_circle << " angle=" << angle << " \n"; // debug
+}
+
+void insert_svg_line(std::fstream& s, int X, int Y, double x1 , double y1, double x2, double y2, Transform transform, std::string indent = "    " ) {
   auto o = [] (auto input_coordinate) {return calculate_svg_coordinates_from(input_coordinate);};
+  transform(X, Y, &x1, &y1);
+  transform(X, Y, &x2, &y2);
   s << indent << R"(<line x1=")" << o(x1) << R"(" y1=")" << o(y1) << R"(" x2=")" << o(x2) << R"(" y2=")" << o(y2) << R"("/>)" << '\n';
 }
 
-void edges_to_svg(std::vector<Edge> & edges, std::fstream & s, int X , int Y) {
+void edges_to_svg(std::vector<Edge> & edges, std::fstream & s, int X , int Y, Transform transform) {
   auto o = [] (auto input_coordinate) {return calculate_svg_coordinates_from(input_coordinate);};
   
   s << "<?xml version=\"1.0\" standalone=\"yes\"?>\n";
@@ -156,24 +251,27 @@ void edges_to_svg(std::vector<Edge> & edges, std::fstream & s, int X , int Y) {
   <rect x="0" y="0" width=")" << o(o(X)) << R"(" height=")" << o(o(Y)) << R"("
       fill="white" />
   <g stroke="black"  stroke-width="0.1"> )" << '\n';
-  insert_svg_line(s,0,Y-1,0,0);
-  insert_svg_line(s,0,0,X,0);
-  insert_svg_line(s,X,1,X,Y);
-  insert_svg_line(s,X,Y,0,Y);
+  for (int x = 0; x < X; x++) {
+    insert_svg_line(s,X,Y,x,Y,x+1,Y, transform);
+    insert_svg_line(s,X,Y,x,0,x+1,0, transform);
+  }
+  for (int y = 0; y < Y; y++) {
+    if (y != Y-1) insert_svg_line(s,X,Y,0,y,0,y+1, transform);
+    if (y != 0) insert_svg_line(s,X,Y,X,y,X,y+1, transform);
+  }
   
   for(auto& e : edges) {
     if(e.used) continue;
     if(e.x1 == e.x2) {//horizontal line
-      insert_svg_line(s,e.x1,e.y2, e.x1+1,e.y2);
+      insert_svg_line(s,X,Y,e.x1,e.y2, e.x1+1,e.y2, transform);
     }
     else {
-      insert_svg_line(s,e.x2,e.y1,e.x2,e.y2+1);
+      insert_svg_line(s,X,Y,e.x2,e.y1,e.x2,e.y2+1, transform);
     }
   }
   s << "</g>" << "\n";
   s << "</svg>\n";
 }
-
 
 void edges_to_gp(std::vector<Edge> & edges, std::fstream & s, int X , int Y) {
 
@@ -200,16 +298,30 @@ void edges_to_gp(std::vector<Edge> & edges, std::fstream & s, int X , int Y) {
   }
   //  s << "set arrow from 1,1 to 5,8 nohead\n";
   s << "plot -2\n";
-  
+}
+
+void help(char **argv) {
+  std::cout << "please provide all arguments\n";
+  std::cout << argv[0] << " <square|circle> <width> <height>\n";
 }
 
 int main(int argc, char** argv) {
-  if (argc != 3) {
-    std::cout << "please provide the dimensions\n";
-    return -1;
+  if (argc != 4) {
+    help(argv);
+    return 1;
   }
-  int X = std::stoi(argv[1]);
-  int Y = std::stoi(argv[2]);
+  std::string choice = argv[1];
+  Transform transform;
+  if (choice.compare("circle") == 0) {
+    transform = transform_circle;
+  } else if (choice.compare("square") == 0) {
+    transform = transform_square;
+  } else {
+    help(argv);
+    return 1;
+  }
+  int X = std::stoi(argv[2]);
+  int Y = std::stoi(argv[3]);
   initialize();
   std::string filename = std::to_string(X) + "x" + std::to_string(Y) + ".svg";
   std::fstream s(filename,s.out);
@@ -218,6 +330,6 @@ int main(int argc, char** argv) {
     return -1;
   }
   std::vector<Edge> edges = make_labyrinth(X,Y);
-  edges_to_svg(edges,s,X,Y);
+  edges_to_svg(edges,s,X,Y, transform);
   s.close();
 }
