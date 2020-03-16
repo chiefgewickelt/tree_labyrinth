@@ -1,6 +1,7 @@
 # tree_labyrinth
 
-![](images/10x10.png)
+<img src="images/10x10-square.png" width="45%" />
+<img src="images/10x10-circle.png" width="45%" />
 
 Minimal spanning trees are used to create randomized labyrinths.
 
@@ -13,9 +14,12 @@ Programm uses two integer parameters for the dimensions,
 see here to create a 26 by 26 squares labyrinth.
 
 ```
-./labyrinth 26 26
+./labyrinth square 26 26
 ```
-
+You can also make it round:
+```
+./labyrinth circle 26 26
+```
 
 ## Installation
 
