@@ -233,12 +233,16 @@ void transform_circle(int X, int Y, double *x, double *y) {
   //std::cout << "points_on_the_circle=" << points_on_the_circle << " radius_x=" << radius_x << " radius_y=" << radius_y << " rel_x=" << rel_x << " rel_y=" << rel_y << " index_on_circle=" << index_on_circle << " angle=" << angle << " \n"; // debug
 }
 
-void insert_svg_line(std::fstream& s, int X, int Y, double x1 , double y1, double x2, double y2, Transform transform, std::string indent = "    " ) {
+void insert_svg_line(std::fstream& s, int X, int Y, double x1 , double y1, double x2, double y2, Transform transform,bool segregation_needed = true, std::string indent = "    " ) {
   auto o = [] (auto input_coordinate) {return calculate_svg_coordinates_from(input_coordinate);};
   transform(X, Y, &x1, &y1);
   transform(X, Y, &x2, &y2);
-  s << indent << R"(<line x1=")" << o(x1) << R"(" y1=")" << o(y1) << R"(" x2=")" << o(x2) << R"(" y2=")" << o(y2) << R"("/>)" << '\n';
+  if (segregation_needed)
+    s << indent << R"(<line x1=")" << o(x1) << R"(" y1=")" << o(y1) << R"(" x2=")" << o(x2) << R"(" y2=")" << o(y2) << R"("/>)" << '\n';
+  else
+    s << indent << R"(<line x1=")" << o(x1) << R"(" y1=")" << o(y1) << R"(" x2=")" << o(x2) << R"(" y2=")" << o(y2) << R"(" style="stroke:rgb(255,0,0);stroke-width:0.1"/>)" << '\n';
 }
+
 
 void edges_to_svg(std::vector<Edge> & edges, std::fstream & s, int X , int Y, Transform transform) {
   auto o = [] (auto input_coordinate) {return calculate_svg_coordinates_from(input_coordinate);};
@@ -247,10 +251,10 @@ void edges_to_svg(std::vector<Edge> & edges, std::fstream & s, int X , int Y, Tr
   s << R"(
 <svg width=")" << 10*X << R"(" height=")" << 10*Y << R"(" viewBox="0 0 )" << o(o(X)) << ' ' <<  o(o(Y)) << R"(" version="1.1"
    xmlns="http://www.w3.org/2000/svg">
-<desc>labyrinth of size )" << o(X) << R"(x)" << o(Y) << R"(</desc>
+<desc>labyrinth of size )" << X << R"(x)" << Y << R"(</desc>
   <rect x="0" y="0" width=")" << o(o(X)) << R"(" height=")" << o(o(Y)) << R"("
       fill="white" />
-  <g stroke="black"  stroke-width="0.1"> )" << '\n';
+  <g stroke="black"  stroke-width="0.3"> )" << '\n';
   for (int x = 0; x < X; x++) {
     insert_svg_line(s,X,Y,x,Y,x+1,Y, transform);
     insert_svg_line(s,X,Y,x,0,x+1,0, transform);
@@ -261,12 +265,12 @@ void edges_to_svg(std::vector<Edge> & edges, std::fstream & s, int X , int Y, Tr
   }
   
   for(auto& e : edges) {
-    if(e.used) continue;
+
     if(e.x1 == e.x2) {//horizontal line
-      insert_svg_line(s,X,Y,e.x1,e.y2, e.x1+1,e.y2, transform);
+      insert_svg_line(s,X,Y,e.x1,e.y2, e.x1+1,e.y2, transform,!e.used);
     }
     else {
-      insert_svg_line(s,X,Y,e.x2,e.y1,e.x2,e.y2+1, transform);
+      insert_svg_line(s,X,Y,e.x2,e.y1,e.x2,e.y2+1, transform,!e.used);
     }
   }
   s << "</g>" << "\n";
