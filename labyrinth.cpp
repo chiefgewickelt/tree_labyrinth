@@ -74,7 +74,7 @@ struct Edge {
 };
 
 
-std::vector<Edge> make_labyrinth(int X, int Y) {
+std::pair<std::vector<Edge>,std::vector<int>> make_labyrinth(int X , int Y ) {
   int number_of_edges = (X-1)*Y+X*(Y-1);
   std::vector<Edge> edges(number_of_edges);
     { int i = 0;
@@ -132,7 +132,7 @@ std::vector<Edge> make_labyrinth(int X, int Y) {
       }
       
     }
-    return edges;
+    return {edges,open_sides};
 }
 
 template <typename T>
@@ -233,11 +233,11 @@ void transform_circle(int X, int Y, double *x, double *y) {
   //std::cout << "points_on_the_circle=" << points_on_the_circle << " radius_x=" << radius_x << " radius_y=" << radius_y << " rel_x=" << rel_x << " rel_y=" << rel_y << " index_on_circle=" << index_on_circle << " angle=" << angle << " \n"; // debug
 }
 
-void insert_svg_line(std::fstream& s, int X, int Y, double x1 , double y1, double x2, double y2, Transform transform,bool segregation_needed = true, std::string indent = "    " ) {
+void insert_svg_line(std::fstream& s, int X, int Y, double x1 , double y1, double x2, double y2, Transform transform,bool segregation_needed = false, std::string indent = "    " ) {
   auto o = [] (auto input_coordinate) {return calculate_svg_coordinates_from(input_coordinate);};
   transform(X, Y, &x1, &y1);
   transform(X, Y, &x2, &y2);
-  if (segregation_needed)
+  if (!segregation_needed)
     s << indent << R"(<line x1=")" << o(x1) << R"(" y1=")" << o(y1) << R"(" x2=")" << o(x2) << R"(" y2=")" << o(y2) << R"("/>)" << '\n';
   else
     s << indent << R"(<line x1=")" << o(x1) << R"(" y1=")" << o(y1) << R"(" x2=")" << o(x2) << R"(" y2=")" << o(y2) << R"(" style="stroke:rgb(255,0,0);stroke-width:0.1"/>)" << '\n';
@@ -265,12 +265,12 @@ void edges_to_svg(std::vector<Edge> & edges, std::fstream & s, int X , int Y, Tr
   }
   
   for(auto& e : edges) {
-
+    if(e.used) continue;//erase this for gridlines
     if(e.x1 == e.x2) {//horizontal line
-      insert_svg_line(s,X,Y,e.x1,e.y2, e.x1+1,e.y2, transform,!e.used);
+      insert_svg_line(s,X,Y,e.x1,e.y2, e.x1+1,e.y2, transform,e.used);
     }
     else {
-      insert_svg_line(s,X,Y,e.x2,e.y1,e.x2,e.y2+1, transform,!e.used);
+      insert_svg_line(s,X,Y,e.x2,e.y1,e.x2,e.y2+1, transform,e.used);
     }
   }
   s << "</g>" << "\n";
@@ -309,6 +309,28 @@ void help(char **argv) {
   std::cout << argv[0] << " <square|circle> <width> <height>\n";
 }
 
+void draw_cross(std::fstream& s, int cell_index, int X , int Y,Transform transform) {
+  int x = cell_index % Y;
+  int y = cell_index / X;
+  bool segregation_line = true;
+  insert_svg_line(s,X,Y,x,y,x+1,y+1, transform,segregation_line);
+  insert_svg_line(s,X,Y,x+1,y,x,y+1, transform,segregation_line);
+}
+
+void insert_segregation_lines(std::fstream & s,int X , int Y, std::vector<int> & open_sides,Transform transform) {
+  s.seekg(0,std::ios_base::end);
+  int length = s.tellg();
+  s.seekg(length - 12);
+  for(size_t i = 0 ; i != open_sides.size(); ++i) {
+    if (open_sides[i] > 2) {
+      draw_cross(s,i,X,Y,transform);
+    }
+  }
+  s << "</g>" << "\n";
+  s << "</svg>\n";
+}
+
+
 int main(int argc, char** argv) {
   if (argc != 4) {
     help(argv);
@@ -333,7 +355,10 @@ int main(int argc, char** argv) {
     std::cout << filename << " could not be created\n";
     return -1;
   }
-  std::vector<Edge> edges = make_labyrinth(X,Y);
+  auto labyrinth = make_labyrinth(X,Y);
+  std::vector<Edge> edges = labyrinth.first;
+  std::vector<int> open_sides = labyrinth.second;
   edges_to_svg(edges,s,X,Y, transform);
+  insert_segregation_lines(s,X,Y,open_sides,transform);
   s.close();
 }
